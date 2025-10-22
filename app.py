@@ -15,7 +15,7 @@ import pytesseract
 DB_SETTINGS = {
     "dbname": "ip_tracker",
     "user": "postgres", # Seu usuário
-    "password": "k2304io02", # Sua senha
+    "password": "", # Sua senha
     "host": "localhost",
     "port": "5432"
 }
