@@ -1,60 +1,62 @@
+# ip_tracker/database.py
 import psycopg2
-from tkinter import messagebox
-from ip_tracker.config import DB_SETTINGS # Importa nossa configuração segura
+from psycopg2.extras import DictCursor # <-- IMPORTANTE
+from .config import DB_SETTINGS
+
+class DatabaseError(Exception):
+    """Exceção customizada para erros de banco."""
+    pass
 
 def get_db_connection():
     """Cria e retorna uma conexão com o banco de dados."""
     try:
-        conn = psycopg2.connect(**DB_SETTINGS)
+        # Usa DictCursor para que os resultados sejam como dicionários
+        conn = psycopg2.connect(**DB_SETTINGS, cursor_factory=DictCursor)
         return conn
     except psycopg2.OperationalError as e:
-        messagebox.showerror("Erro de Conexão", f"Não foi possível conectar ao PostgreSQL: {e}")
-        return None
+        # Levanta um erro que a GUI pode capturar
+        raise DatabaseError(f"Não foi possível conectar ao PostgreSQL: {e}") from e
 
-def register_ip_in_db(ip_address, mobile_code, country, record_type):
-    """Insere um novo registro de IP no banco de dados."""
+def register_ip_in_db(ip_address, mobile_code, country, record_type) -> bool:
+    """Insere ou ATUALIZA um registro de IP.
+    Retorna True se bem-sucedido.
+    """
+    # Sua lógica de ON CONFLICT DO UPDATE é ótima!
     sql = """
         INSERT INTO registered_ips (ip_address, mobile_code, country, record_type)
         VALUES (%s, %s, %s, %s)
-        ON CONFLICT (ip_address) DO NOTHING;
+        ON CONFLICT (ip_address) DO UPDATE SET
+            mobile_code = EXCLUDED.mobile_code,
+            country = EXCLUDED.country,
+            record_type = EXCLUDED.record_type,
+            registration_date = CURRENT_TIMESTAMP;
     """
-    conn = get_db_connection()
-    if not conn: return
+    conn = None
     try:
+        conn = get_db_connection()
         with conn.cursor() as cur:
             cur.execute(sql, (ip_address, mobile_code, country, record_type))
             conn.commit()
-            if cur.rowcount > 0:
-                messagebox.showinfo("Sucesso", f"IP {ip_address} registrado com sucesso!")
-            else:
-                messagebox.showwarning("Aviso", f"O IP {ip_address} já existe no banco de dados.")
+            return True
     except Exception as e:
-        conn.rollback()
-        messagebox.showerror("Erro de DB", f"Falha ao registrar o IP: {e}")
+        if conn: conn.rollback()
+        # Levanta o erro para a camada de serviço tratar
+        raise DatabaseError(f"Erro inesperado ao registrar/atualizar o IP: {e}") from e
     finally:
         if conn: conn.close()
 
-def search_ip_in_db(ip_address):
-    """Busca por um IP no banco de dados e mostra suas informações."""
+def search_ip_in_db(ip_address) -> dict | None:
+    """Busca por um IP e retorna seus dados (como um dict) ou None."""
     sql = "SELECT ip_address, mobile_code, country, registration_date, record_type FROM registered_ips WHERE ip_address = %s;"
-    conn = get_db_connection()
-    if not conn: return
+    conn = None
     try:
+        conn = get_db_connection()
         with conn.cursor() as cur:
             cur.execute(sql, (ip_address,))
             result = cur.fetchone()
-            if result:
-                info = (
-                    f"IP: {result[0]}\n"
-                    f"Código Mobile: {result[1]}\n"
-                    f"País: {result[2]}\n"
-                    f"Tipo: {result[4]}\n"
-                    f"Data de Registro: {result[3].strftime('%d/%m/%Y %H:%M:%S')}"
-                )
-                messagebox.showinfo("Resultado da Busca", info)
-            else:
-                messagebox.showinfo("Resultado da Busca", f"O IP {ip_address} não foi encontrado.")
+            return result # <-- Retorna a linha (que é um DictRow) ou None
     except Exception as e:
-        messagebox.showerror("Erro de DB", f"Falha ao buscar o IP: {e}")
+        # Levanta o erro para a camada de serviço tratar
+        raise DatabaseError(f"Erro inesperado ao buscar o IP: {e}") from e
     finally:
         if conn: conn.close()
