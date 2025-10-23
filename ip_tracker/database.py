@@ -1,6 +1,6 @@
 import psycopg2
 from tkinter import messagebox
-from config import DB_SETTINGS # Importa nossa configuração segura
+from ip_tracker.config import DB_SETTINGS # Importa nossa configuração segura
 
 def get_db_connection():
     """Cria e retorna uma conexão com o banco de dados."""

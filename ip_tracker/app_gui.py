@@ -1,10 +1,9 @@
 import customtkinter
-import platform
 import tkinter as tk
 from tkinter import messagebox
-from ui_components import PasteEnabledInputDialog
-from database import register_ip_in_db, search_ip_in_db
-from utils import get_ip_info, find_ip_in_text, extract_ip_from_clipboard_image
+from ip_tracker.ui_components import PasteEnabledInputDialog
+from ip_tracker.database import register_ip_in_db, search_ip_in_db
+from ip_tracker.utils import get_ip_info, find_ip_in_text, extract_ip_from_clipboard_image
 
 customtkinter.set_appearance_mode("dark")
 customtkinter.set_default_color_theme("blue")
@@ -26,11 +25,8 @@ class App(customtkinter.CTk):
         self.ip_entry = customtkinter.CTkEntry(frame, width=220)
         self.ip_entry.grid(row=0, column=1, columnspan=2, pady=10, padx=10, sticky="ew")
         
-        self.ip_entry.bind("<Control-v>", self.handle_paste)
-        if platform.system() == "Darwin":
-            self.bind("<Command-v>", self.handle_paste)
-        else:
-            self.bind("<Control-v>", self.handle_paste)
+        # Associa o Cmd+V à janela inteira.
+        self.bind("<Command-v>", self.handle_paste)
 
         # Campo de Código Mobile (row 1)
         customtkinter.CTkLabel(frame, text="Código Mobile:").grid(row=1, column=0, sticky="w", pady=10, padx=10)
